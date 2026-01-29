@@ -2,9 +2,7 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 import json
-import cv2
 from PIL import Image
-import matplotlib.pyplot as plt
 
 # -------------------------------
 # Page Config
@@ -39,16 +37,12 @@ with st.sidebar:
     st.write("""
     **Plant Disease Detection App**
 
-    This application uses **Deep Learning (CNN + MobileNetV2)**  
-    to classify **38 plant leaf diseases** from images.
-
-    **Features**
-    - Transfer Learning
-    - Real-time prediction
-    - Explainable AI (Grad-CAM)
+    A deep learning–based web application that classifies
+    **38 plant leaf diseases** from images using
+    **CNN + MobileNetV2**.
 
     **Developer:** Nihal Ahemad Khan  
-    **Tech Stack:** TensorFlow, CNN, Streamlit
+    **Tech Stack:** TensorFlow, CNN, Transfer Learning, Streamlit
     """)
 
     st.markdown("---")
@@ -75,30 +69,6 @@ uploaded_file = st.file_uploader(
     "Upload Leaf Image",
     type=["jpg", "jpeg", "png"]
 )
-
-# -------------------------------
-# Grad-CAM Function
-# -------------------------------
-def make_gradcam_heatmap(img_array, model, last_conv_layer_name):
-    grad_model = tf.keras.models.Model(
-        [model.inputs],
-        [model.get_layer(last_conv_layer_name).output, model.output]
-    )
-
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(img_array)
-        class_index = tf.argmax(predictions[0])
-        loss = predictions[:, class_index]
-
-    grads = tape.gradient(loss, conv_outputs)
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
-    conv_outputs = conv_outputs[0]
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-
-    heatmap = tf.maximum(heatmap, 0) / tf.reduce_max(heatmap)
-    return heatmap.numpy()
 
 # -------------------------------
 # Prediction Logic
@@ -130,29 +100,6 @@ if uploaded_file:
 
     for i in top_indices:
         st.write(f"• {labels[i]} — {preds[0][i]*100:.2f}%")
-
-    # -------------------------------
-    # Grad-CAM Visualization
-    # -------------------------------
-    if st.checkbox("🧠 Show Model Attention (Grad-CAM)"):
-        try:
-            last_conv_layer = "Conv_1"  # MobileNetV2 last conv layer
-            heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer)
-
-            img_cv = cv2.cvtColor(np.array(image.resize((224, 224))), cv2.COLOR_RGB2BGR)
-            heatmap = cv2.resize(heatmap, (224, 224))
-            heatmap = np.uint8(255 * heatmap)
-            heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-
-            superimposed_img = cv2.addWeighted(img_cv, 0.6, heatmap, 0.4, 0)
-
-            st.image(
-                cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB),
-                caption="Grad-CAM: Model Focus Area",
-                use_column_width=True
-            )
-        except Exception as e:
-            st.error("Grad-CAM visualization not available for this model.")
 
 # -------------------------------
 # Disclaimer
